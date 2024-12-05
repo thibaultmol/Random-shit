@@ -1,0 +1,52 @@
+<html>
+  <head>
+    <style>
+      table, th, td {
+        border: 1px solid black;
+        border-collapse: collapse;
+        padding: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <h3>Top Occurring Values in a List</h3>
+    <textarea id="inputValues" rows="10" cols="30"></textarea>
+    <br><br>
+    <button id="submitBtn">Submit</button>
+    <br><br>
+    <div id="result"></div>
+    <script>
+      const submitBtn = document.querySelector("#submitBtn");
+      const inputValues = document.querySelector("#inputValues");
+      const resultDiv = document.querySelector("#result");
+      submitBtn.addEventListener("click", function() {
+        const values = inputValues.value.split("\n");
+        const frequency = {};
+        values.forEach(function(value) {
+          if (value in frequency) {
+            frequency[value]++;
+          } else {
+            frequency[value] = 1;
+          }
+        });
+        const sortedValues = Object.entries(frequency).sort((a, b) => b[1] - a[1]);
+        const topValues = sortedValues.slice(0, 100);
+        const resultTable = `
+          <table>
+            <tr>
+              <th>Value</th>
+              <th>Frequency</th>
+            </tr>
+            ${topValues.map(value => `
+              <tr>
+                <td>${value[0]}</td>
+                <td>${value[1]}</td>
+              </tr>
+            `).join("")}
+          </table>
+        `;
+        resultDiv.innerHTML = resultTable;
+      });
+    </script>
+  </body>
+</html>
