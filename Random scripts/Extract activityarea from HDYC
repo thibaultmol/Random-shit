@@ -1,0 +1,81 @@
+// Go to the HDYC page you want to extract and then run this in the console section of the devtools (F12) of your browser
+// Define the decode function
+function decode(encoded_data) {
+    const precision = Math.pow(10, -5); // Precision level
+    const result = []; // To store decoded coordinates
+    const len = encoded_data.length; // Length of the encoded string
+
+    let i = 0, lat = 0, lon = 0;
+
+    while (i < len) {
+        let shift = 0, resultLat = 0;
+
+        // Decode latitude
+        let byte;
+        do {
+            byte = encoded_data.charCodeAt(i++) - 63;
+            resultLat |= (byte & 0x1f) << shift;
+            shift += 5;
+        } while (byte >= 0x20);
+
+        lat += (resultLat & 1) ? ~(resultLat >> 1) : (resultLat >> 1);
+
+        // Decode longitude
+        shift = 0;
+        let resultLon = 0;
+        do {
+            byte = encoded_data.charCodeAt(i++) - 63;
+            resultLon |= (byte & 0x1f) << shift;
+            shift += 5;
+        } while (byte >= 0x20);
+
+        lon += (resultLon & 1) ? ~(resultLon >> 1) : (resultLon >> 1);
+
+        // Add to results array
+        result.push([lon * precision, lat * precision]); // Note: GeoJSON uses [lon, lat]
+    }
+
+    return result;
+}
+
+// Locate and extract the response string from the page
+(function () {
+    // Find the <script> tag that contains the response variable
+    const scriptTag = Array.from(document.querySelectorAll("script")).find(script =>
+        script.textContent.includes("response")
+    );
+
+    if (!scriptTag) {
+        console.error("Response variable not found on this page.");
+        return;
+    }
+
+    // Extract the `response` variable content
+    const responseTextMatch = scriptTag.textContent.match(/var\s+response\s*=\s*(\{.*\});/);
+    if (!responseTextMatch) {
+        console.error("Response object not found in the script tag.");
+        return;
+    }
+
+    // Parse the response object
+    const response = JSON.parse(responseTextMatch[1]);
+
+    // Get the encoded activtyarea
+    const encodedPolygon = response.activtyarea;
+    if (!encodedPolygon) {
+        console.error("activtyarea not found in the response object.");
+        return;
+    }
+
+    // Decode the polygon
+    const decodedPolygon = decode(encodedPolygon);
+
+    // Convert to GeoJSON
+    const geojson = {
+        type: "Polygon",
+        coordinates: [decodedPolygon] // GeoJSON requires an array of LinearRings
+    };
+
+    // Output the GeoJSON
+    console.log("GeoJSON:", JSON.stringify(geojson, null, 2));
+})();
