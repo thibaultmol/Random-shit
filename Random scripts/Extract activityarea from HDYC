@@ -38,6 +38,17 @@ function decode(encoded_data) {
     return result;
 }
 
+// Function to trigger a file download
+function downloadGeoJSON(data, filename) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
 // Locate and extract the response string from the page
 (function () {
     // Find the <script> tag that contains the response variable
@@ -76,6 +87,12 @@ function decode(encoded_data) {
         coordinates: [decodedPolygon] // GeoJSON requires an array of LinearRings
     };
 
-    // Output the GeoJSON
+    // Output the GeoJSON to the console
     console.log("GeoJSON:", JSON.stringify(geojson, null, 2));
+
+    // Get the username for the filename
+    const username = response.contributor?.name || "user"; // Default to "user" if no username
+
+    // Trigger the download of the GeoJSON file
+    downloadGeoJSON(geojson, `${username}.geojson`);
 })();
