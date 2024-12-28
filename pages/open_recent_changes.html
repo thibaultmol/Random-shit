@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JOSM Query Opener - Thibault's Flanders Monitor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        input, button {
+            padding: 8px;
+            margin: 5px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            padding: 10px 20px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #log {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            margin: 5px 0;
+            font-family: monospace;
+        }
+        .explanation {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #4CAF50;
+        }
+        .date-explanation {
+            font-size: 0.9em;
+            color: #666;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="explanation">
+            <h2>Thibault's Flanders Change Monitor</h2>
+            <p>This tool will open multiple Overpass queries in JOSM to monitor changes to your edits across Flanders. The region is split into 10 smaller bounding boxes to prevent RAM issues with Overpass.</p>
+            <p><strong>Important:</strong> Make sure JOSM is running before pressing the button.</p>
+        </div>
+
+        <div class="input-group">
+            <div class="date-explanation">
+                Select a date/time - the query will show objects that have been modified by others after this timestamp. These are objects that you had previously edited at some point.
+            </div>
+            <input type="datetime-local" id="dateTimePicker" onchange="updateTextField()">
+            <input type="text" id="dateTimeText" placeholder="2024-12-20T00:00:00Z" style="width: 200px;">
+        </div>
+        <button onclick="openQueries()">Open All Queries in JOSM</button>
+        <div id="log"></div>
+    </div>
+
+    <script>
+        function updateTextField() {
+            const picker = document.getElementById('dateTimePicker');
+            const text = document.getElementById('dateTimeText');
+            const date = new Date(picker.value);
+            text.value = date.toISOString().replace('.000', '');
+        }
+
+        function addLogEntry(text) {
+            const log = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.textContent = `${new Date().toLocaleTimeString()} - ${text}`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function generateJOSMUrl(bbox, datetime) {
+            const query = `[out:json][timeout:3600]
+[bbox:${bbox}];
+
+// Retrieve all objects that were modified at any point by the user "thibaultmol".
+nwr(user_touched:"Thibaultmol")->.modifiedByThibaultmol;
+
+// Retrieve all objects that were last modified by the user "thibaultmol".
+nw(user:"Thibaultmol")->.lastTouchedByThibaultmol;
+
+// Subtract the objects last touched by "thibaultmol" from those modified at any point by "thibaultmol".
+(.modifiedByThibaultmol; - .lastTouchedByThibaultmol;)->.modifiedByOthers;
+
+// Filter to show only objects modified by someone else in the last week.
+nw.modifiedByOthers(newer:"${datetime}");
+
+// Output the result.
+out geom;`;
+
+            const overpassUrl = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query);
+            return `http://127.0.0.1:8111/import?url=${encodeURIComponent(overpassUrl)}`;
+        }
+
+        function openQueries() {
+            const datetime = document.getElementById('dateTimeText').value;
+            const bboxes = [
+                '50.6800, 2.5400, 51.0950, 3.2160',   // R01
+                '50.6800, 3.2160, 51.0950, 3.8920',   // R02
+                '50.6800, 3.8920, 51.0950, 4.5680',   // R03
+                '50.6800, 4.5680, 51.0950, 5.2440',   // R04
+                '50.6800, 5.2440, 51.0950, 5.9200',   // R05
+                '51.0950, 2.5400, 51.5100, 3.2160',   // R06
+                '51.0950, 3.2160, 51.5100, 3.8920',   // R07
+                '51.0950, 3.8920, 51.5100, 4.5680',   // R08
+                '51.0950, 4.5680, 51.5100, 5.2440',   // R09
+                '51.0950, 5.2440, 51.5100, 5.9200'    // R10
+            ];
+
+            addLogEntry('Starting JOSM import requests...');
+
+            bboxes.forEach((bbox, index) => {
+                const url = generateJOSMUrl(bbox, datetime);
+                const regionNum = (index + 1).toString().padStart(2, '0');
+
+                setTimeout(() => {
+                    addLogEntry(`Opening region R${regionNum}...`);
+                    fetch(url).catch(err => {
+                        addLogEntry(`JOSM import request sent for R${regionNum}`);
+                    });
+
+                    if (index === bboxes.length - 1) {
+                        setTimeout(() => {
+                            addLogEntry('All JOSM import requests have been sent!');
+                            alert('All JOSM import requests have been sent!');
+                        }, 1000);
+                    }
+                }, index * 200);
+            });
+        }
+
+// Set default date/time to 00:00 7 days ago
+window.onload = function() {
+    const now = new Date();
+    const sevenDaysAgo = new Date(now);
+    sevenDaysAgo.setDate(now.getDate() - 7);
+    sevenDaysAgo.setHours(0, 0, 0, 0);  // Set to 00:00:00
+
+    const picker = document.getElementById('dateTimePicker');
+    picker.value = sevenDaysAgo.toISOString().slice(0, 16);
+    updateTextField();
+};
+
+    </script>
+</body>
+</html>
