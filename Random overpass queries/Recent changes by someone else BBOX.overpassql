@@ -1,10 +1,17 @@
 /*
 Query to find all objects (excluding relations) that were modified by someoene other than myself in the last x period in a given are (bbox).
-Just for me (Flanders split into 4 even sections horizontally because Overpass can't handle all of Flanders in one go because it's too much data):
-50.68, 2.540, 51.51, 3.385
-50.68, 3.385, 51.51, 4.230
-50.68, 4.230, 51.51, 5.075
-50.68, 5.075, 51.51, 5.920
+Just for me (Flanders split into 10 even sections because Overpass can't handle all of Flanders in one go because it's too much data):
+50.6800, 2.5400, 51.0950, 3.2160
+50.6800, 3.2160, 51.0950, 3.8920
+50.6800, 3.8920, 51.0950, 4.5680
+50.6800, 4.5680, 51.0950, 5.2440
+50.6800, 5.2440, 51.0950, 5.9200
+51.0950, 2.5400, 51.5100, 3.2160
+51.0950, 3.2160, 51.5100, 3.8920
+51.0950, 3.8920, 51.5100, 4.5680
+51.0950, 4.5680, 51.5100, 5.2440
+51.0950, 5.2440, 51.5100, 5.9200
+To easily run all these overpass queries, I made a simple html page that opens them all in JOSM: https://thibaultmol.github.io/Random-shit/pages/open_recent_changes.html
 */
 [out:json][timeout:3600]
 [bbox:50.68, 2.540, 51.51, 3.385];
