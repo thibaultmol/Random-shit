@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pharmacy Schedule</title>
+</head>
+<body>
+    <script>
+        function getMonday(d) {
+            d = new Date(d);
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            return new Date(d.setDate(diff));
+        }
+
+        function formatDate(date) {
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}/${month}/${year}`;
+        }
+
+        function loadPDF() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const pharmacyId = urlParams.get('pharmacy');
+            const language = urlParams.get('language') || 'NL';
+
+            const today = new Date();
+            const monday = getMonday(today);
+            const mondayFormatted = formatDate(monday);
+
+            // Determine which page to show (1 for Mon-Thu, 2 for Fri-Sun)
+            const dayOfWeek = today.getDay(); // 0 is Sunday, 1 is Monday, etc.
+            const page = (dayOfWeek >= 5 || dayOfWeek === 0) ? 2 : 1;
+
+            // Add #page=X to the URL
+            window.location.href = `https://geowacht.be/wachtkaart.html?pharmacy=${pharmacyId}&date=${mondayFormatted}&language=${language}#page=${page}`;
+        }
+
+        loadPDF();
+    </script>
+</body>
+</html>
