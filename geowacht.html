@@ -30,7 +30,7 @@
 
             // Determine which page to show (1 for Mon-Thu, 2 for Fri-Sun)
             const dayOfWeek = today.getDay(); // 0 is Sunday, 1 is Monday, etc.
-            const page = (dayOfWeek >= 5 || dayOfWeek === 0) ? 2 : 1;
+            const page = (dayOfWeek >= 2 || dayOfWeek === 0) ? 2 : 1;
 
             // Add #page=X to the URL
             window.location.href = `https://geowacht.be/wachtkaart.html?pharmacy=${pharmacyId}&date=${mondayFormatted}&language=${language}#page=${page}`;
