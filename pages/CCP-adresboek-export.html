@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CC Pharmacist adresboek export</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 40px auto;
+        padding: 20px;
+        background-color: #f9f9f9;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      }
+      h1,
+      h2 {
+        text-align: center;
+      }
+      .input-section {
+        margin: 20px 0;
+        padding: 15px;
+        background-color: #f0f0f0;
+        border-radius: 8px;
+        text-align: center;
+      }
+      .button {
+        background-color: #4caf50;
+        color: white;
+        padding: 10px 15px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+        margin: 10px 5px;
+      }
+      .button:hover {
+        background-color: #45a049;
+      }
+      .download-section {
+        margin-top: 20px;
+        padding: 15px;
+        border-top: 1px solid #ddd;
+      }
+      .download-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 15px;
+        justify-content: center;
+      }
+      .download-link {
+        display: inline-block;
+        background-color: #2196f3;
+        color: white;
+        padding: 8px 15px;
+        text-decoration: none;
+        border-radius: 5px;
+        font-size: 14px;
+      }
+      .download-link:hover {
+        background-color: #0b7dda;
+      }
+      .hidden {
+        display: none;
+      }
+      footer {
+        margin-top: 30px;
+        padding-top: 15px;
+        border-top: 1px solid #ddd;
+        text-align: center;
+        font-size: 14px;
+        color: #666;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>CC Pharmacist adresboek export</h1>
+    <p>
+      Dit is een tool om de Excel/CSV-export van patiënten in CareConnect
+      Pharmacist om te zetten in het formaat om te importeren in Cloudgroup
+      Telefonie. Alles gebeurt lokaal in uw browser; er worden geen gegevens
+      naar de cloud verstuurd.
+    </p>
+    <h2>Instructies</h2>
+    <ol>
+      <li>
+        Ga naar het startscherm van CareConnect Pharmacist en kies 'Rapporten' >
+        'Contacten'.
+      </li>
+      <li>
+        Kies 'Lijst van patiënten' en filter met 'Status patiënt' op enkel
+        'actief'. (Zo zitten er enkel levende patienten in de lijst)
+      </li>
+      <li>Druk op 'Laden' en wacht tot de lijst is geladen.</li>
+      <li>
+        Druk bovenaan op 'Export' en kies 'Excel' om het bestand op te slaan.
+      </li>
+      <li>Upload het opgeslagen bestand hieronder.</li>
+    </ol>
+
+    <div class="input-section">
+      <input type="file" id="fileInput" accept=".csv,.xlsx" />
+      <button id="processButton" class="button">Verwerk bestand</button>
+    </div>
+
+    <div id="downloadSection" class="download-section hidden">
+      <h3>Bestanden klaar voor download</h3>
+      <p>
+        Klik op de onderstaande links om de verwerkte bestanden te downloaden:
+      </p>
+      <div id="downloadLinks" class="download-links"></div>
+    </div>
+
+    <p>
+      <strong>Disclaimer:</strong> Ik ben niet verantwoordelijk voor eventuele
+      fouten of problemen die kunnen ontstaan door het gebruik van output van
+      deze tool. Gebruik op eigen risico.
+    </p>
+
+    <footer>
+      Deze tool is open source. De
+      <a
+        href="https://github.com/thibaultmol/Random-shit/tree/main/Random%20local%20tools"
+        target="_blank"
+        >source code</a
+      >
+      is beschikbaar op GitHub.
+      <br />
+      Gemaakt door Thibault Molleman (met hulp van AI).
+    </footer>
+
+    <script>
+      document
+        .getElementById("processButton")
+        .addEventListener("click", function () {
+          const fileInput = document.getElementById("fileInput");
+          if (fileInput.files.length === 0) {
+            alert("Selecteer eerst een CSV of Excel bestand.");
+            return;
+          }
+
+          const file = fileInput.files[0];
+          const reader = new FileReader();
+
+          // Leeg eventuele eerdere downloadlinks
+          const downloadLinks = document.getElementById("downloadLinks");
+          downloadLinks.innerHTML = "";
+
+          reader.onload = function (event) {
+            const csvData = event.target.result;
+            const rows = csvData.trim().split("\n");
+            const delimiter = rows[0].includes(";") ? ";" : ",";
+            const headers = rows.shift().split(delimiter);
+            const actorNameIndex = headers.indexOf("ActorName".trim());
+            const phoneNrIndex = headers.indexOf("PhoneNr".trim());
+
+            if (actorNameIndex === -1 || phoneNrIndex === -1) {
+              alert('Het bestand bevat geen "ActorName" of "PhoneNr" kolom.');
+              return "";
+            }
+
+            let result = "";
+            let chunk = 1;
+            let rowCount = 0;
+            const maxRowsPerFile = 5000;
+            let totalProcessedRows = 0;
+
+            rows.forEach((row) => {
+              if (
+                row.trim() === "" ||
+                !row.split(delimiter)[phoneNrIndex].trim()
+              )
+                return;
+              const columns = row.split(delimiter);
+              let actorName = columns[actorNameIndex]
+                .trim()
+                .toLowerCase()
+                .split(" ");
+              actorName = actorName
+                .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(" ");
+              const phoneNr = columns[phoneNrIndex]
+                .trim()
+                .replace(/[^0-9]/g, "");
+              if (/^0+$/.test(phoneNr) || /^051000*$/.test(phoneNr)) return;
+
+              if (rowCount === 0) {
+                result += `name${delimiter}number1\n`;
+              }
+
+              result += `${actorName}${delimiter}${phoneNr}\n`;
+              rowCount++;
+              totalProcessedRows++;
+
+              if (rowCount >= maxRowsPerFile) {
+                createDownloadLink(result, chunk);
+                result = "";
+                rowCount = 0;
+                chunk++;
+              }
+            });
+
+            if (result !== "") {
+              createDownloadLink(result, chunk);
+            }
+
+            // Toon het downloadgedeelte
+            document
+              .getElementById("downloadSection")
+              .classList.remove("hidden");
+
+            // Toon een bericht met het aantal verwerkte rijen
+            const statusMessage = document.createElement("p");
+            statusMessage.textContent = `${totalProcessedRows} contacten succesvol verwerkt en opgedeeld in ${chunk} bestand(en).`;
+            downloadLinks.parentNode.insertBefore(statusMessage, downloadLinks);
+          };
+
+          function createDownloadLink(data, chunkNumber) {
+            const blob = new Blob([data], { type: "text/csv" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download =
+              file.name.replace(/\.[^.]+$/, "") + `_deel${chunkNumber}.csv`;
+            link.className = "download-link";
+            link.textContent = `Download Deel ${chunkNumber}`;
+            document.getElementById("downloadLinks").appendChild(link);
+          }
+
+          reader.readAsText(file);
+        });
+    </script>
+  </body>
+</html>
