@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Kagi Card Mode
-// @version      1.0
+// @version      1.1
 // @description  Toggle Kagi search results between list and card view
 // @author       thibaultmol
 // @match        https://*.kagi.com/*
@@ -12,31 +12,13 @@
 // @grant        GM_getValue
 // @updateURL    https://raw.githubusercontent.com/thibaultmol/random-shit/main/Random%20userscripts/Kagi/kagi-cardify.user.js
 // @downloadURL  https://raw.githubusercontent.com/thibaultmol/random-shit/main/Random%20userscripts/Kagi/kagi-cardify.user.js
-// @connect      yunohost.thibaultmol.link
 // ==/UserScript==
 
-/**
- * THIS IS ULTRA WORK IN PROGRESS AND JUST A PROOF OF CONEPT. 
- * YOU NEED TO SET THE PROXY URL FIRST
- */
 (function() {
-  // --- Configurable Proxy URL ---
-  const DEFAULT_PROXY_URL = 'https://yunohost.thibaultmol.link/proxy/?url=';
-  async function getProxyUrl() {
-    return (await (typeof GM_getValue === 'function' ? GM_getValue('proxyUrl', DEFAULT_PROXY_URL) : DEFAULT_PROXY_URL));
-  }
-  async function setProxyUrl() {
-    const current = await getProxyUrl();
-    const url = prompt('Enter CORS proxy URL:', current);
-    if (url && typeof GM_setValue === 'function') {
-      GM_setValue('proxyUrl', url);
-      alert('Proxy URL set. Reload the page to apply.');
-    }
-  }
-
   // --- Card Mode Logic ---
   let cardModeActive = false;
   let cleanupFns = [];
+  let blobUrls = []; // Track blob URLs for cleanup
 
   function enableCardMode() {
     // --- CSS ---
@@ -203,11 +185,14 @@
         var img = document.createElement('img');
         img.className = 'kg-card-img';
         img.onerror = function() { this.remove(); };
-        // Use proxyImageToDataUrl for CSP-safe images
-        getProxyUrl().then(proxyUrl => {
-          proxyImageToDataUrl(imgEl.src, proxyUrl).then(dataUrl => {
-            img.src = dataUrl || imgEl.src;
-          });
+        // Use fetchImageAsBlob for direct image fetching
+        fetchImageAsBlob(imgEl.src).then(blobUrl => {
+          if (blobUrl) {
+            img.src = blobUrl;
+            blobUrls.push(blobUrl);
+          } else {
+            img.src = imgEl.src;
+          }
         });
         card.appendChild(img);
       }
@@ -258,19 +243,25 @@
         if (ogUrl) {
           var imgEl = card.querySelector('.kg-card-img');
           if (imgEl) {
-            getProxyUrl().then(proxyUrl => {
-              proxyImageToDataUrl(ogUrl, proxyUrl).then(dataUrl => {
-                imgEl.src = dataUrl || ogUrl;
-              });
+            fetchImageAsBlob(ogUrl).then(blobUrl => {
+              if (blobUrl) {
+                imgEl.src = blobUrl;
+                blobUrls.push(blobUrl);
+              } else {
+                imgEl.src = ogUrl;
+              }
             });
           } else {
             var newImg = document.createElement('img');
             newImg.className = 'kg-card-img';
             newImg.onerror = function() { this.remove(); };
-            getProxyUrl().then(proxyUrl => {
-              proxyImageToDataUrl(ogUrl, proxyUrl).then(dataUrl => {
-                newImg.src = dataUrl || ogUrl;
-              });
+            fetchImageAsBlob(ogUrl).then(blobUrl => {
+              if (blobUrl) {
+                newImg.src = blobUrl;
+                blobUrls.push(blobUrl);
+              } else {
+                newImg.src = ogUrl;
+              }
             });
             card.insertBefore(newImg, card.firstChild);
           }
@@ -300,6 +291,10 @@
   }
 
   function disableCardMode() {
+    // Revoke all blob URLs
+    blobUrls.forEach(url => URL.revokeObjectURL(url));
+    blobUrls = [];
+
     // Run all cleanup functions
     while (cleanupFns.length) {
       try { cleanupFns.pop()(); } catch(e){}
@@ -330,19 +325,10 @@
   if (typeof GM !== "undefined" && typeof GM.registerMenuCommand === "function") {
     GM.registerMenuCommand('Enable Kagi Card Mode', run);
     GM.registerMenuCommand('Disable Kagi Card Mode', undo);
-    GM.registerMenuCommand('Set Proxy URL', setProxyUrl);
   }
 
-  // --- Helper functions - MODIFIED to use user proxy URL ---
-  function proxyImageUrl(url, proxyBase) {
-    proxyBase = proxyBase || DEFAULT_PROXY_URL;
-    return proxyBase + encodeURIComponent(url);
-  }
-
+  // --- Helper functions - MODIFIED to use blobs ---
   async function fetchOGImage(pageUrl) {
-    const proxyBase = await getProxyUrl();
-    var target = proxyBase + encodeURIComponent(pageUrl);
-
     return new Promise((resolve, reject) => {
       const gmXHR = GM.xmlHttpRequest || GM_xmlhttpRequest;
       if (!gmXHR) {
@@ -352,7 +338,7 @@
 
       gmXHR({
         method: 'GET',
-        url: target,
+        url: pageUrl,
         timeout: 10000,
         onload: function(response) {
           if (response.status >= 200 && response.status < 300) {
@@ -369,15 +355,12 @@
   }
 
   async function fetchPageSnippet(pageUrl, pEl, original) {
-    const proxyBase = await getProxyUrl();
-    var target = proxyBase + encodeURIComponent(pageUrl);
-
     const gmXHR = GM.xmlHttpRequest || GM_xmlhttpRequest;
     if (!gmXHR) return;
 
     gmXHR({
       method: 'GET',
-      url: target,
+      url: pageUrl,
       timeout: 10000,
       onload: function(response) {
         if (response.status >= 200 && response.status < 300) {
@@ -415,32 +398,21 @@
     });
   }
 
-  // Helper: fetch image via proxy and convert to data URL for CSP-safe embedding
-  function proxyImageToDataUrl(url, proxyBase) {
-    proxyBase = proxyBase || DEFAULT_PROXY_URL;
+  // Helper: fetch image directly and convert to blob URL
+  function fetchImageAsBlob(url) {
     return new Promise((resolve) => {
       const gmXHR = GM.xmlHttpRequest || GM_xmlhttpRequest;
       if (!gmXHR) return resolve(null);
-      var target = proxyBase + encodeURIComponent(url);
+
       gmXHR({
         method: 'GET',
-        url: target,
-        responseType: 'arraybuffer',
+        url: url,
+        responseType: 'blob',
         timeout: 10000,
         onload: function(response) {
           if (response.status >= 200 && response.status < 300 && response.response) {
-            var arr = new Uint8Array(response.response);
-            var binary = '';
-            for (var i = 0; i < arr.length; i++) binary += String.fromCharCode(arr[i]);
-            var base64 = btoa(binary);
-            // Try to guess mime type from url extension
-            var ext = (url.split('.').pop() || '').toLowerCase();
-            var mime = 'image/jpeg';
-            if (ext === 'png') mime = 'image/png';
-            else if (ext === 'gif') mime = 'image/gif';
-            else if (ext === 'webp') mime = 'image/webp';
-            else if (ext === 'svg') mime = 'image/svg+xml';
-            resolve(`data:${mime};base64,${base64}`);
+            const blobUrl = URL.createObjectURL(response.response);
+            resolve(blobUrl);
           } else {
             resolve(null);
           }
