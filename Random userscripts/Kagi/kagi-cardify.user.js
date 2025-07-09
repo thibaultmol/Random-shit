@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Kagi Card Mode
-// @version      1.1
-// @description  Toggle Kagi search results between list and card view
+// @version      1.2
+// @description  Display Kagi search results in a card view
 // @author       thibaultmol
 // @match        https://*.kagi.com/*
 // @namespace    https://github.com/thibaultmol
@@ -12,13 +12,64 @@
 // @grant        GM_getValue
 // @updateURL    https://raw.githubusercontent.com/thibaultmol/random-shit/main/Random%20userscripts/Kagi/kagi-cardify.user.js
 // @downloadURL  https://raw.githubusercontent.com/thibaultmol/random-shit/main/Random%20userscripts/Kagi/kagi-cardify.user.js
+// @note         For Tampermonkey users: Please disable the "Check @connect" setting in Tampermonkey settings for this script to work properly
 // ==/UserScript==
 
 (function() {
   // --- Card Mode Logic ---
   let cardModeActive = false;
+  let autoModeEnabled = true;
   let cleanupFns = [];
   let blobUrls = []; // Track blob URLs for cleanup
+  let monitorInterval = null;
+
+  // Load saved auto mode setting
+  async function loadAutoModeSetting() {
+    try {
+      const saved = await GM_getValue('autoModeEnabled', false);
+      autoModeEnabled = saved;
+      if (autoModeEnabled) {
+        startMonitoring();
+      }
+    } catch (e) {
+      autoModeEnabled = false;
+    }
+  }
+
+  // Save auto mode setting
+  async function saveAutoModeSetting() {
+    try {
+      await GM_setValue('autoModeEnabled', autoModeEnabled);
+    } catch (e) {
+      console.error('Failed to save auto mode setting:', e);
+    }
+  }
+
+  // Check if search results are loaded
+  function areSearchResultsLoaded() {
+    const searchResults = document.querySelectorAll('main h3 a');
+    const mainContent = document.querySelector('main ._0_main-search-results');
+    return searchResults.length > 0 && mainContent;
+  }
+
+  // Monitor for search results and auto-apply card mode
+  function startMonitoring() {
+    if (monitorInterval) return;
+
+    monitorInterval = setInterval(() => {
+      if (autoModeEnabled && !cardModeActive && areSearchResultsLoaded()) {
+        cardModeActive = true;
+        enableCardMode();
+      }
+    }, 250); // Check every 1/4 second
+  }
+
+  function stopMonitoring() {
+    if (monitorInterval) {
+      clearInterval(monitorInterval);
+      monitorInterval = null;
+    }
+  }
 
   function enableCardMode() {
     // --- CSS ---
@@ -36,18 +87,19 @@
         width: 100%;
         display: grid;
         grid-template-columns: repeat(auto-fill, 325px);
-        grid-auto-rows: 638px;
+        //grid-auto-rows: 638px;
         gap: 16px;
         margin: 0 0 16px;
         justify-content: start;
       }
       .kg-card {
         width: 325px;
-        height: 638px;
+        max-height: 638px;
         box-sizing: border-box;
-        background: #fff;
-        border-radius: 8px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        box-shadow: 1px 8px 30px 0 rgba(0,0,0,.09);
+        border-radius:15px;
+        color: var(--search-result-content-text);
+        border: 1px solid var(--color-search-input-border);
         overflow: hidden;
         display: flex;
         flex-direction: column;
@@ -56,6 +108,7 @@
         width: 100%;
         height: 160px;
         object-fit: cover;
+        border-radius:15px 15px 0px 0px;
       }
       .kg-card-body {
         padding: 12px;
@@ -67,19 +120,23 @@
       }
       .kg-card-body h4 {
         margin: 0 0 8px;
-        font-size: 1.1rem;
+        font-size: 1.2rem;
         display: flex;
         align-items: center;
         flex-wrap: wrap;
+        color: var(--app-text);
       }
+       .kg-card-body h4 a {color: var(--app-text);}
+
       .kg-card-body p {
         flex: 0 0 auto;
-        margin: 0;
-        font-size: 0.95rem;
-        color: #333;
+        margin-bottom: 10px;
+        font-size: 1rem;
         line-height: 1.3;
         overflow: hidden;
         position: relative;
+        text-justify: auto;
+        text-align: justify;
       }
       .kg-card-body {
         position: relative;
@@ -92,23 +149,23 @@
         left: 0;
         width: 100%;
         height: 3em;
-        background: linear-gradient(to bottom, rgba(255,255,255,0), #fff);
+        background: linear-gradient(to bottom, rgba(255,255,255,0), var(--secondary));
       }
       .kg-card-footer .__sri-translate {
         margin-right: 8px;
-        color: #333;
       }
       .kg-card-footer {
         display: flex;
         align-items: center;
         padding: 5px 8px;
-        background: #fff8e1;
-        font-size: 0.9rem;
-        border-top: 1px solid #f0e2a8;
+        background-color: var(--color-search-input);
+        font-size: 1rem;
+        border-top: 1px solid var(--color-search-input-border);
+        border-radius: 0px 0px 15px 15px;
+        height:40px;
       }
       .kg-card-footer a {
         text-decoration: none;
-        color: #333;
       }
       .kg-card-footer .__sri_more_menu_box {
         display: flex;
@@ -119,7 +176,7 @@
         display: inline-flex;
         align-items: center;
         margin-right: 8px;
-        color: #333;
+        color: var(--app-text);
       }
       .kg-card-footer svg {
         width: 16px;
@@ -307,14 +364,24 @@
     if (grid) grid.remove();
   }
 
-  function run() {
-    if (!cardModeActive) {
+  function enableAutoMode() {
+    autoModeEnabled = true;
+    saveAutoModeSetting();
+    startMonitoring();
+
+    // If search results are already loaded, apply card mode immediately
+    if (areSearchResultsLoaded() && !cardModeActive) {
       cardModeActive = true;
       enableCardMode();
     }
   }
 
-  function undo() {
+  function disableAutoMode() {
+    autoModeEnabled = false;
+    saveAutoModeSetting();
+    stopMonitoring();
+
+    // Disable current card mode if active
     if (cardModeActive) {
       cardModeActive = false;
       disableCardMode();
@@ -323,9 +390,12 @@
 
   // Register menu commands
   if (typeof GM !== "undefined" && typeof GM.registerMenuCommand === "function") {
-    GM.registerMenuCommand('Enable Kagi Card Mode', run);
-    GM.registerMenuCommand('Disable Kagi Card Mode', undo);
+    GM.registerMenuCommand('Enable Kagi Card Mode', enableAutoMode);
+    GM.registerMenuCommand('Disable Kagi Card Mode', disableAutoMode);
   }
+
+  // Initialize on page load
+  loadAutoModeSetting();
 
   // --- Helper functions - MODIFIED to use blobs ---
   async function fetchOGImage(pageUrl) {
