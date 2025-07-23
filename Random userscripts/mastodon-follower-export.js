@@ -1,5 +1,5 @@
-# tbc, this is just a piece of javascript to run in the console.
-# You navigate to a profile and then run the script, it'll give you a follower list of that profile.
+// tbc, this is just a piece of javascript to run in the console.
+//  You navigate to a profile and then run the script, it'll give you a follower list of that profile.
 
 (function() {
     // Extract bearer token from localStorage or sessionStorage
