@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Billit Invoice AI data extractor
-// @version      1.2
+// @version      1.3
 // @description  Extracts various data from the images in Snelle Invoer by sending it to through openai
 // @author       Thibaultmol
 // @description  Extract invoice data using OpenAI API
@@ -18,7 +18,7 @@
 
     // Helper functions for cookie management
     function setCookie(name, value, minutes) {
-        const maxAge = minutes * 60; // Convert to seconds
+        const maxAge = minutes * 60;
         document.cookie = `${name}=${encodeURIComponent(value)}; max-age=${maxAge}; path=/; SameSite=Strict`;
     }
 
@@ -27,22 +27,39 @@
         return match ? decodeURIComponent(match[2]) : null;
     }
 
-    // Add keyboard shortcut to trigger (Ctrl+Shift+I)
-    document.addEventListener('keydown', function(e) {
-        if (e.ctrlKey && e.shiftKey && e.key === 'l') {
-            extractInvoice();
-        }
-    });
+    // Add button to the page
+    function addButton() {
+        const buttonContainer = document.querySelector('.d-sm-flex.justify-content-xl-end');
+        if (!buttonContainer) return;
+
+        // Check if button already exists
+        if (document.getElementById('btnBillitAI')) return;
+
+        const button = document.createElement('button');
+        button.id = 'btnBillitAI';
+        button.type = 'button';
+        button.className = 'btn btn-primary btn-block btn-sm-inline mb-1 mb-sm-0 mr-sm-1';
+        button.textContent = 'Billit AI';
+        button.onclick = extractInvoice;
+
+        // Insert as first child (leftmost button)
+        buttonContainer.insertBefore(button, buttonContainer.firstChild);
+    }
+
+    // Wait for page to load and add button
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', addButton);
+    } else {
+        addButton();
+    }
 
     async function extractInvoice() {
-        // Try to get API key from cookie
         let API_KEY = getCookie('openai_api_key');
 
-        // If not found, prompt user and store for 10 minutes
         if (!API_KEY) {
             API_KEY = prompt("Please enter your OpenAI API key:");
             if (!API_KEY) return;
-            setCookie('openai_api_key', API_KEY, 10); // Store for 10 minutes
+            setCookie('openai_api_key', API_KEY, 10);
         }
 
         try {
@@ -132,6 +149,7 @@
                             element.dispatchEvent(new Event('change', { bubbles: true }));
                         }
 
+                        alert('Invoice data extracted successfully!');
                     } catch (error) {
                         console.error("Error:", error);
                         alert('Error: ' + error.message);
