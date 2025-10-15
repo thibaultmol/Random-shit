@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Billit Invoice AI data extractor
-// @version      1.3
+// @version      1.4
 // @description  Extracts various data from the images in Snelle Invoer by sending it to through openai
 // @author       Thibaultmol
 // @description  Extract invoice data using OpenAI API
@@ -77,13 +77,13 @@
             if (!base64) throw new Error("Failed to convert image to base64");
 
             const apiBody = {
-                model: "gpt-4o",
+                model: "gpt-5-mini",
                 messages: [{
                     role: "user",
                     content: [
                         {
                             type: "text",
-                            text: "Extract from the invoice ONLY these 4 things:\n- invoice number\n- invoice date (dd/mm/yyyy)\n- payment description: Either the invoice has something in this format +++090/9337/55493+++ OR if that's not present on the invoice, create a text which is \"Factuur [invoicenr] datum [invoice date] klantnr [customer id]\"\n- A ultra short list of items listed on the invoice with comma's in between"
+                            text: "Extract from the invoice ONLY these 4 things:\n- invoice number\n- invoice date (dd/mm/yyyy)\n- payment description: Either the invoice has something in this format +++090/9337/55493+++ OR if that's not present on the invoice, create a text which is \"Factuur [invoicenr] datum [invoice date] klantnr [customer id]\"\n- A ultra short list of items listed on the invoice with comma's in between (only 4 items)"
                         },
                         {
                             type: "image_url",
