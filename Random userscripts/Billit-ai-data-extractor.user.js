@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Billit Invoice AI data extractor
-// @version      1.1
+// @version      1.2
 // @description  Extracts various data from the images in Snelle Invoer by sending it to through openai
 // @author       Thibaultmol
 // @description  Extract invoice data using OpenAI API
@@ -29,7 +29,7 @@
 
     // Add keyboard shortcut to trigger (Ctrl+Shift+I)
     document.addEventListener('keydown', function(e) {
-        if (e.ctrlKey && e.shiftKey && e.key === 'I') {
+        if (e.ctrlKey && e.shiftKey && e.key === 'l') {
             extractInvoice();
         }
     });
