@@ -149,7 +149,6 @@
                             element.dispatchEvent(new Event('change', { bubbles: true }));
                         }
 
-                        alert('Invoice data extracted successfully!');
                     } catch (error) {
                         console.error("Error:", error);
                         alert('Error: ' + error.message);
