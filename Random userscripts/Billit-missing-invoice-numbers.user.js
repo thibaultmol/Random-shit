@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Billit Missing Order Numbers Checker
-// @version      1.3
+// @version      1.4
 // @description  Adds a button to check for missing order numbers on the Incoming invoices page
 // @author       Thibaultmol
 // @match        https://my.breex.be/Order/Income/Invoice/*
@@ -14,11 +14,11 @@
     'use strict';
 
     function findMissingNumbers(numbers) {
-        // Convert to integers, ignore non-numeric values, then sort ascending
         numbers = numbers
             .map(n => parseInt(n, 10))
             .filter(n => !isNaN(n))
             .sort((a, b) => a - b);
+
         let missing = [];
         for(let i = 0; i < numbers.length - 1; i++) {
             let diff = numbers[i + 1] - numbers[i];
@@ -32,10 +32,28 @@
     }
 
     function checkMissingNumbers() {
+        const currentYear = new Date().getFullYear();
+        const yearPrefix = currentYear.toString();
         let orderNumbers = [];
+
         document.querySelectorAll('td[sortcolumn="OrderNumber"]').forEach(td => {
-            orderNumbers.push(td.textContent.trim());
+            let orderNum = td.textContent.trim();
+
+            // Remove "371201-" prefix if present
+            if(orderNum.startsWith('371201-')) {
+                orderNum = orderNum.substring(7);
+            }
+
+            // Only process numbers that start with current year (e.g., 2026)
+            if(orderNum.startsWith(yearPrefix)) {
+                orderNumbers.push(orderNum);
+            }
         });
+
+        if(orderNumbers.length === 0) {
+            alert('No invoice numbers found starting with ' + yearPrefix);
+            return;
+        }
 
         let missingNumbers = findMissingNumbers(orderNumbers);
 
@@ -47,7 +65,6 @@
     }
 
     function addButton() {
-        // Remove existing button if present
         const existingButton = document.querySelector('.check-missing-btn');
         if (existingButton) {
             existingButton.remove();
@@ -69,29 +86,24 @@
         }
     }
 
-    // Initial button add
     addButton();
 
-    // Watch for AJAX content updates
     const observer = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
             if (mutation.target.id === 'OrderList' &&
                 mutation.type === 'childList' &&
                 mutation.addedNodes.length > 0) {
-                // Wait a brief moment for the DOM to settle
                 setTimeout(addButton, 100);
                 break;
             }
         }
     });
 
-    // Start observing the document with the configured parameters
     observer.observe(document.body, {
         childList: true,
         subtree: true
     });
 
-    // Also watch for URL changes via History API
     const originalPushState = history.pushState;
     history.pushState = function() {
         setTimeout(addButton, 100);
